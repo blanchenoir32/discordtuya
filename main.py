@@ -1,7 +1,7 @@
 import os
 import discord
 from discord.ext import commands
-from tuya_connector import TuyaOpenAPI
+from tuya_iot import TuyaOpenAPI
 
 # Load environment variables (optional for local testing)
 from dotenv import load_dotenv
