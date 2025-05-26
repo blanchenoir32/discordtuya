@@ -20,8 +20,9 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 openapi = TuyaOpenAPI(TUYA_ENDPOINT, ACCESS_ID, ACCESS_SECRET)
 openapi.connect()
 
-# Set up Discord bot
+# Set up Discord bot with message_content intent enabled
 intents = discord.Intents.default()
+intents.message_content = True  # Enable privileged intent here
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
