@@ -1,0 +1,4 @@
+DISCORD_TOKEN=your_discord_bot_token
+TUYA_ACCESS_ID=4uyq8pxruad8j5mgwnx7
+TUYA_ACCESS_SECRET=your_hidden_secret_here
+TUYA_DEVICE_ID=your_plug_device_id_here
