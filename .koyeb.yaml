@@ -1,0 +1,12 @@
+name: discordtuya
+routes: []
+envs:
+  - key: DISCORD_TOKEN
+    value: ${DISCORD_TOKEN}
+  - key: TUYA_ACCESS_ID
+    value: ${TUYA_ACCESS_ID}
+  - key: TUYA_ACCESS_SECRET
+    value: ${TUYA_ACCESS_SECRET}
+  - key: DEVICE_ID
+    value: ${DEVICE_ID}
+run: python main.py
