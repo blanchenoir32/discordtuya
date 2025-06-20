@@ -21,11 +21,12 @@ if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
 # Helper to get the Kasa plug
 def get_kasa_plug():
     mgr = TPLinkDeviceManager(KASA_EMAIL, KASA_PASSWORD)
-    mgr.login()  # Authenticate
-    devices = mgr.get_devices()  # Fetch devices
+    mgr.login()
+    devices = mgr.get_devices()
     plug = mgr.get_device_by_alias(DEVICE_ALIAS)
-    if not plug:
-        raise ValueError(f"Plug with alias '{DEVICE_ALIAS}' not found. Available: {[d.alias for d in devices]}")
+    if plug is None:
+        aliases = [d.alias for d in devices]
+        raise ValueError(f"Plug alias '{DEVICE_ALIAS}' not found. Available: {aliases}")
     return plug
 
 # Set up Discord bot
@@ -38,7 +39,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 async def on_message(message):
     if message.author == bot.user:
         return
-    print(f"📩 Received message: {message.author}: {message.content}")
+    print(f"📩 Received message from {message.author}: {message.content}")
     await bot.process_commands(message)
 
 # Debug: log commands
@@ -50,40 +51,43 @@ async def on_command(ctx):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
-# Ping command\@bot.command()
+# Ping command
+@bot.command()
 async def ping(ctx):
     await ctx.send("🏓 Pong!")
 
+# Toggle helper
 async def toggle_plug(ctx, turn_on: bool):
     action = 'turn_on' if turn_on else 'turn_off'
-    print(f"👷 Executing {action} command")
+    print(f"👷 Executing {action}")
     try:
         plug = get_kasa_plug()
-        # Refresh status
         plug.update()
         result = plug.turn_on() if turn_on else plug.turn_off()
-        # Confirm status after action
         plug.update()
         status = plug.is_on
-        print(f"🔌 {action} result: {result}, status now: {status}")
+        print(f"🔌 {action} returned {result}, status now {status}")
         if status == turn_on:
             msg = "✅ Server plug turned **ON**. Booting TrueNAS…" if turn_on else "🛑 Server plug turned **OFF**."
         else:
             msg = f"⚠️ Plug did not {'turn on' if turn_on else 'turn off'}, status is {status}."
         await ctx.send(msg)
     except Exception as e:
-        print(f"❌ {action} error: {e}")
+        print(f"❌ Error during {action}: {e}")
         await ctx.send(f"⚠️ Failed to {'turn on' if turn_on else 'turn off'} plug: {e}")
 
-# Start server\@bot.command(name="startserver", aliases=["poweron"])
+# Start server command
+@bot.command(name="startserver", aliases=["poweron"])
 async def startserver(ctx):
     await toggle_plug(ctx, True)
 
-# Shutdown server\@bot.command(name="shutdownserver", aliases=["poweroff"])
+# Shutdown server command
+@bot.command(name="shutdownserver", aliases=["poweroff"])
 async def shutdownserver(ctx):
     await toggle_plug(ctx, False)
 
-# Health check server\async def start_web():
+# Health check server for free Web Service
+async def start_web():
     app = web.Application()
     async def health(request):
         return web.Response(text="OK")
