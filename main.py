@@ -3,62 +3,50 @@ import asyncio
 import discord
 from discord.ext import commands
 from aiohttp import web
-from tuya_iot import TuyaOpenAPI
+from tplinkcloud import TPLinkDeviceManager
 
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
 
-# Tuya API credentials
-TUYA_ENDPOINT = "https://openapi.tuyaus.com"
-ACCESS_ID = os.getenv("TUYA_ACCESS_ID")
-ACCESS_SECRET = os.getenv("TUYA_ACCESS_SECRET")
-DEVICE_ID = os.getenv("TUYA_DEVICE_ID")
-
-# Discord bot token
+# Kasa Cloud credentials
+KASA_EMAIL = os.getenv("KASA_EMAIL")
+KASA_PASSWORD = os.getenv("KASA_PASSWORD")
+DEVICE_ALIAS = os.getenv("KASA_DEVICE_ALIAS")
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-if not DISCORD_TOKEN:
-    raise ValueError("DISCORD_TOKEN is not set in environment variables.")
 
-# Initialize Tuya OpenAPI
-openapi = TuyaOpenAPI(TUYA_ENDPOINT, ACCESS_ID, ACCESS_SECRET)
-openapi.connect()
+if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
+    raise ValueError("One or more required environment variables are missing.")
 
-# Set up Discord bot with message_content intent enabled
+# Helper to get the Kasa plug
+async def get_kasa_plug():
+    mgr = TPLinkDeviceManager(KASA_EMAIL, KASA_PASSWORD)
+    mgr.login()
+    return mgr.get_device_by_alias(DEVICE_ALIAS)
+
+# Set up Discord bot
 intents = discord.Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
 @bot.command()
-async def poweron(ctx):
-    response = openapi.post(
-        f"/v1.0/iot-03/devices/{DEVICE_ID}/commands", {
-            "commands": [{"code": "switch_1", "value": True}]
-        }
-    )
-    if response.get("success"):
-        await ctx.send("🔌 Plug turned **ON**")
-    else:
-        await ctx.send(f"⚠️ Failed to turn on plug: {response}")
+async def startserver(ctx):
+    plug = await get_kasa_plug()
+    plug.turn_on()
+    await ctx.send("✅ Server plug turned **ON**. Booting TrueNAS…")
 
 @bot.command()
-async def poweroff(ctx):
-    response = openapi.post(
-        f"/v1.0/iot-03/devices/{DEVICE_ID}/commands", {
-            "commands": [{"code": "switch_1", "value": False}]
-        }
-    )
-    if response.get("success"):
-        await ctx.send("🔌 Plug turned **OFF**")
-    else:
-        await ctx.send(f"⚠️ Failed to turn off plug: {response}")
+async def shutdownserver(ctx):
+    plug = await get_kasa_plug()
+    plug.turn_off()
+    await ctx.send("🛑 Server plug turned **OFF**.")
 
-# --- Health check web server for Koyeb Web Service ---
-async def start_web_server():
+# Health check server for free Web Service
+async def start_web():
     app = web.Application()
     async def health(request):
         return web.Response(text="OK")
@@ -72,8 +60,7 @@ async def start_web_server():
     print(f"🌐 Health endpoint running on port {port}")
 
 async def main():
-    # Start HTTP server and bot concurrently
-    await start_web_server()
+    await start_web()
     await bot.start(DISCORD_TOKEN)
 
 if __name__ == '__main__':
