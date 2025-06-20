@@ -34,7 +34,6 @@ async def get_kasa_plug():
     raise ValueError(f"Plug alias '{DEVICE_ALIAS}' not found. Available: {aliases}")
 
 # Set up Discord bot
-i
 intents = discord.Intents.default()
 intents.message_content = True  # ensure this is enabled in Dev Portal
 bot = commands.Bot(command_prefix="!", intents=intents)
