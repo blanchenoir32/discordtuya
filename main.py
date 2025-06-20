@@ -20,11 +20,13 @@ if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
 
 # Async helper to get the Kasa plug
 def get_kasa_plug():
+    # This helper is sync wrapper; use asyncio to call async methods
     mgr = TPLinkDeviceManager()
-    # login requires email and password
+    # Authenticate
     asyncio.get_event_loop().run_until_complete(mgr.login(KASA_EMAIL, KASA_PASSWORD))
-    # fetch devices
+    # Fetch device list
     devices = asyncio.get_event_loop().run_until_complete(mgr.get_devices())
+    # Find the plug by alias
     for d in devices:
         if d.alias == DEVICE_ALIAS:
             return d
@@ -33,7 +35,7 @@ def get_kasa_plug():
 
 # Set up Discord bot
 intents = discord.Intents.default()
-intents.message_content = True  # ensure this is enabled in Dev Portal
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Debug: log incoming messages
@@ -64,8 +66,12 @@ async def toggle_plug(ctx, turn_on: bool):
     print(f"👷 Executing {action}")
     try:
         plug = get_kasa_plug()
-        # perform toggle asynchronously
-        await plug.turn_on() if turn_on else await plug.turn_off()
+        # Perform toggle
+        if turn_on:
+            await plug.turn_on()
+        else:
+            await plug.turn_off()
+        # Confirm status
         status = plug.is_on
         print(f"🔌 {action} complete, status now {status}")
         if status == turn_on:
