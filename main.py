@@ -19,12 +19,9 @@ if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
     raise ValueError("One or more required environment variables are missing.")
 
 # Async helper to get the Kasa plug
-t# Convert Device Manager calls to async/await
 async def get_kasa_plug():
-    mgr = TPLinkDeviceManager()
-    # login is synchronous; pass credentials
-    mgr.login(KASA_EMAIL, KASA_PASSWORD)
-    # get_devices is async coroutine in this sdk
+    mgr = TPLinkDeviceManager(email=KASA_EMAIL, password=KASA_PASSWORD)
+    await mgr.login()
     devices = await mgr.get_devices()
     for d in devices:
         if d.alias == DEVICE_ALIAS:
@@ -34,7 +31,7 @@ async def get_kasa_plug():
 
 # Set up Discord bot
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  # ensure this is enabled in Dev Portal
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Debug: log incoming messages
@@ -55,7 +52,7 @@ async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
 # Ping command
-@bot.command()
+@bot.command(name="ping", aliases=["latency"])
 async def ping(ctx):
     await ctx.send("🏓 Pong!")
 
@@ -65,16 +62,12 @@ async def toggle_plug(ctx, turn_on: bool):
     print(f"👷 Executing {action}")
     try:
         plug = await get_kasa_plug()
-        # turn_on/off returns None or boolean
-        if turn_on:
-            await plug.turn_on()
-        else:
-            await plug.turn_off()
-        # Confirm status
+        await plug.turn_on() if turn_on else await plug.turn_off()
         status = plug.is_on
         print(f"🔌 {action} complete, status now {status}")
         if status == turn_on:
-            msg = "✅ Server plug turned **ON**. Booting TrueNAS…" if turn_on else "🛑 Server plug turned **OFF**."
+            msg = ("✅ Server plug turned **ON**. Booting TrueNAS…" if turn_on 
+                   else "🛁 Server plug turned **OFF**.")
         else:
             msg = f"⚠️ Plug did not {'turn on' if turn_on else 'turn off'}, status is {status}."
         await ctx.send(msg)
