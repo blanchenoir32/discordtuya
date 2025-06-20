@@ -20,6 +20,16 @@ if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
 
 # Helper to get the Kasa plug
 def get_kasa_plug():
+    # TPLinkDeviceManager requires login credentials in the login() call
+    mgr = TPLinkDeviceManager()
+    # Pass email and password to login()
+    mgr.login(KASA_EMAIL, KASA_PASSWORD)
+    devices = mgr.get_devices()
+    plug = mgr.get_device_by_alias(DEVICE_ALIAS)
+    if plug is None:
+        aliases = [d.alias for d in devices]
+        raise ValueError(f"Plug alias '{DEVICE_ALIAS}' not found. Available: {aliases}")
+    return plug():
     mgr = TPLinkDeviceManager(KASA_EMAIL, KASA_PASSWORD)
     mgr.login()
     devices = mgr.get_devices()
