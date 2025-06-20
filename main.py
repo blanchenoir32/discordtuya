@@ -19,10 +19,12 @@ if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
     raise ValueError("One or more required environment variables are missing.")
 
 # Async helper to get the Kasa plug
-async def get_kasa_plug():
-    mgr = TPLinkDeviceManager(email=KASA_EMAIL, password=KASA_PASSWORD)
-    await mgr.login()
-    devices = await mgr.get_devices()
+def get_kasa_plug():
+    mgr = TPLinkDeviceManager()
+    # login requires email and password
+    asyncio.get_event_loop().run_until_complete(mgr.login(KASA_EMAIL, KASA_PASSWORD))
+    # fetch devices
+    devices = asyncio.get_event_loop().run_until_complete(mgr.get_devices())
     for d in devices:
         if d.alias == DEVICE_ALIAS:
             return d
@@ -61,13 +63,14 @@ async def toggle_plug(ctx, turn_on: bool):
     action = 'turn_on' if turn_on else 'turn_off'
     print(f"👷 Executing {action}")
     try:
-        plug = await get_kasa_plug()
+        plug = get_kasa_plug()
+        # perform toggle asynchronously
         await plug.turn_on() if turn_on else await plug.turn_off()
         status = plug.is_on
         print(f"🔌 {action} complete, status now {status}")
         if status == turn_on:
             msg = ("✅ Server plug turned **ON**. Booting TrueNAS…" if turn_on 
-                   else "🛁 Server plug turned **OFF**.")
+                   else "🛑 Server plug turned **OFF**.")
         else:
             msg = f"⚠️ Plug did not {'turn on' if turn_on else 'turn off'}, status is {status}."
         await ctx.send(msg)
