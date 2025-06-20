@@ -19,26 +19,22 @@ if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
     raise ValueError("One or more required environment variables are missing.")
 
 # Async helper to get the Kasa plug
-enable_async = True
 async def get_kasa_plug():
     mgr = TPLinkDeviceManager()
-    # Asynchronously login with credentials
     await mgr.login(KASA_EMAIL, KASA_PASSWORD)
-    # Asynchronously fetch device list
     devices = await mgr.get_devices()
-    # Find and return the matching alias
     for d in devices:
         if d.alias == DEVICE_ALIAS:
             return d
     aliases = [d.alias for d in devices]
-    raise ValueError(f"Plug alias '{DEVICE_ALIAS}' not found. Available: {aliases}")
+    print(f"❌ Plug alias '{DEVICE_ALIAS}' not found. Available aliases: {aliases}")
+    return None
 
 # Set up Discord bot
 intents = discord.Intents.default()
 intents.message_content = True  # ensure this is enabled in Dev Portal
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Debug: log incoming messages
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
@@ -46,7 +42,6 @@ async def on_message(message):
     print(f"📩 Received message from {message.author}: {message.content}")
     await bot.process_commands(message)
 
-# Debug: log commands
 @bot.event
 async def on_command(ctx):
     print(f"➡️ Command invoked: {ctx.command} by {ctx.author}")
@@ -55,7 +50,6 @@ async def on_command(ctx):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
-# Ping command
 @bot.command(name="ping", aliases=["latency"])
 async def ping(ctx):
     await ctx.send("🏓 Pong!")
@@ -66,12 +60,13 @@ async def toggle_plug(ctx, turn_on: bool):
     print(f"👷 Executing {action}")
     try:
         plug = await get_kasa_plug()
-        # Perform toggle asynchronously
+        if not plug:
+            await ctx.send("⚠️ No matching Kasa plug found. Check alias.")
+            return
         if turn_on:
             await plug.turn_on()
         else:
             await plug.turn_off()
-        # Confirm status
         status = plug.is_on
         print(f"🔌 {action} complete, status now {status}")
         if status == turn_on:
@@ -84,7 +79,6 @@ async def toggle_plug(ctx, turn_on: bool):
         print(f"❌ Error during {action}: {e}")
         await ctx.send(f"⚠️ Failed to {'turn on' if turn_on else 'turn off'} plug: {e}")
 
-# Commands
 @bot.command(name="startserver", aliases=["poweron"])
 async def startserver(ctx):
     await toggle_plug(ctx, True)
@@ -110,5 +104,15 @@ async def main():
     await start_web()
     await bot.start(DISCORD_TOKEN)
 
+# Safe asyncio startup for environments with already-running loops
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        if "already running" in str(e):
+            print("⚠️ Event loop already running. Using alternative startup.")
+            loop = asyncio.get_event_loop()
+            loop.create_task(main())
+            loop.run_forever()
+        else:
+            raise
