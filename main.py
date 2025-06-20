@@ -60,7 +60,7 @@ async def toggle_plug(ctx, turn_on: bool):
     print(f"👷 Executing {action}")
     try:
         plug = await get_kasa_plug()
-        if not plug:
+        if plug is None:
             await ctx.send("⚠️ No matching Kasa plug found. Check alias.")
             return
         if turn_on:
