@@ -18,21 +18,23 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
     raise ValueError("One or more required environment variables are missing.")
 
-# Helper to get the Kasa plug
-def get_kasa_plug():
-    # Initialize manager and login with credentials
+# Async helper to get the Kasa plug
+t# Convert Device Manager calls to async/await
+async def get_kasa_plug():
     mgr = TPLinkDeviceManager()
+    # login is synchronous; pass credentials
     mgr.login(KASA_EMAIL, KASA_PASSWORD)
-    devices = mgr.get_devices()
-    plug = mgr.get_device_by_alias(DEVICE_ALIAS)
-    if plug is None:
-        aliases = [d.alias for d in devices]
-        raise ValueError(f"Plug alias '{DEVICE_ALIAS}' not found. Available: {aliases}")
-    return plug
+    # get_devices is async coroutine in this sdk
+    devices = await mgr.get_devices()
+    for d in devices:
+        if d.alias == DEVICE_ALIAS:
+            return d
+    aliases = [d.alias for d in devices]
+    raise ValueError(f"Plug alias '{DEVICE_ALIAS}' not found. Available: {aliases}")
 
 # Set up Discord bot
 intents = discord.Intents.default()
-intents.message_content = True  # Ensure enabled in Dev Portal
+intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Debug: log incoming messages
@@ -52,7 +54,8 @@ async def on_command(ctx):
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
 
-# Basic ping command\@bot.command()
+# Ping command
+@bot.command()
 async def ping(ctx):
     await ctx.send("🏓 Pong!")
 
@@ -61,12 +64,15 @@ async def toggle_plug(ctx, turn_on: bool):
     action = 'turn_on' if turn_on else 'turn_off'
     print(f"👷 Executing {action}")
     try:
-        plug = get_kasa_plug()
-        plug.update()
-        result = plug.turn_on() if turn_on else plug.turn_off()
-        plug.update()
+        plug = await get_kasa_plug()
+        # turn_on/off returns None or boolean
+        if turn_on:
+            await plug.turn_on()
+        else:
+            await plug.turn_off()
+        # Confirm status
         status = plug.is_on
-        print(f"🔌 {action} returned {result}, status now {status}")
+        print(f"🔌 {action} complete, status now {status}")
         if status == turn_on:
             msg = "✅ Server plug turned **ON**. Booting TrueNAS…" if turn_on else "🛑 Server plug turned **OFF**."
         else:
