@@ -26,12 +26,27 @@ async def get_kasa_plug():
 
 # Set up Discord bot
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  # ensure this is enabled in developer portal
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+# Debug: log incoming messages
+@bot.event
+async def on_message(message):
+    print(f"📩 Received message: {message.author}: {message.content}")
+    await bot.process_commands(message)
+
+# Debug: log commands
+@bot.event
+async def on_command(ctx):
+    print(f"➡️ Command invoked: {ctx.command} by {ctx.author}")
 
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user}")
+
+@bot.command()
+async def ping(ctx):
+    await ctx.send("🏓 Pong!")
 
 @bot.command()
 async def startserver(ctx):
