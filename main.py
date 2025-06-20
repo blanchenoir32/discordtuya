@@ -19,22 +19,20 @@ if not all([KASA_EMAIL, KASA_PASSWORD, DEVICE_ALIAS, DISCORD_TOKEN]):
     raise ValueError("One or more required environment variables are missing.")
 
 # Async helper to get the Kasa plug
-enable_async = True
-async def get_kasa_plug():
-    mgr = TPLinkDeviceManager()
-    # Asynchronously login with credentials
-    await mgr.login(KASA_EMAIL, KASA_PASSWORD)
-    # Asynchronously fetch device list
-    devices = await mgr.get_devices()
-    # Find and return the matching alias
-    for d in devices:
-        if d.alias == DEVICE_ALIAS:
-            return d
-    aliases = [d.alias for d in devices]
-    raise ValueError(f"Plug alias '{DEVICE_ALIAS}' not found. Available: {aliases}")
+def get_kasa_plug():
+    # Wrapper that runs async calls synchronously
+    async def _inner():
+        mgr = TPLinkDeviceManager()
+        await mgr.login(KASA_EMAIL, KASA_PASSWORD)
+        devices = await mgr.get_devices()
+        for d in devices:
+            if d.alias == DEVICE_ALIAS:
+                return d
+        aliases = [d.alias for d in devices]
+        raise ValueError(f"Plug alias '{DEVICE_ALIAS}' not found. Available: {aliases}")
+    return asyncio.get_event_loop().run_until_complete(_inner())
 
 # Set up Discord bot
-i
 intents = discord.Intents.default()
 intents.message_content = True  # ensure this is enabled in Dev Portal
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -66,18 +64,15 @@ async def toggle_plug(ctx, turn_on: bool):
     action = 'turn_on' if turn_on else 'turn_off'
     print(f"👷 Executing {action}")
     try:
-        plug = await get_kasa_plug()
-        # Perform toggle asynchronously
+        plug = get_kasa_plug()
         if turn_on:
             await plug.turn_on()
         else:
             await plug.turn_off()
-        # Confirm status
         status = plug.is_on
         print(f"🔌 {action} complete, status now {status}")
         if status == turn_on:
-            msg = ("✅ Server plug turned **ON**. Booting TrueNAS…" if turn_on 
-                   else "🛑 Server plug turned **OFF**.")
+            msg = "✅ Server plug turned **ON**. Booting TrueNAS…" if turn_on else "🛑 Server plug turned **OFF**."
         else:
             msg = f"⚠️ Plug did not {'turn on' if turn_on else 'turn off'}, status is {status}."
         await ctx.send(msg)
@@ -94,7 +89,7 @@ async def startserver(ctx):
 async def shutdownserver(ctx):
     await toggle_plug(ctx, False)
 
-# Health check server for free Web Service
+# Health check server
 async def start_web():
     app = web.Application()
     async def health(request):
